@@ -13,6 +13,8 @@ using Domain = std::vector<Value>; // Alias che rappresenta il dominio di una va
 using Domains = std::vector<Domain>; // Domini
 using Assignment = std::vector<Value>; // Rappresenta un'assegnazione parziale o completa
 
+constexpr Value UNASSIGNED = -1; // CONVENZIONE DI PROGETTO
+
 /**
  * Statistiche Solver, misura ciò che succede durante la risoluzione del CSP con il Solver
  */

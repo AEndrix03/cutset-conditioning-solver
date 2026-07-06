@@ -6,8 +6,6 @@
 
 namespace {
 
-    constexpr Value UNASSIGNED = -1; // CONVENZIONE DI PROGETTO
-
     // Utilities varie
     void check_var(Var x, int nvars) {
         if (x < 0 || x >= nvars) {

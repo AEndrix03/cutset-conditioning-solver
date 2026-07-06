@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(cutset_csp
         src/main.cpp
-        src/backtracing.cpp
+        src/backtracking.cpp
         src/cutset.cpp
         src/csp.cpp
         src/experiment.cpp
