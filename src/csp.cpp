@@ -6,11 +6,11 @@
 
 namespace {
 
-    constexpr UNASSIGNED = -1; // CONVENZIONE DI PROGETTO
+    constexpr Value UNASSIGNED = -1; // CONVENZIONE DI PROGETTO
 
     // Utilities varie
     void check_var(Var x, int nvars) {
-        if (x < 0 || x > nvars) {
+        if (x < 0 || x >= nvars) {
             throw std::out_of_range("Var index out of range!");
         }
     }
@@ -95,6 +95,10 @@ CSP::CSP(std::string name, Domains domains) : name_(name), domains_(domains) {
         if (domain.empty()) {
             throw std::invalid_argument("Each variable must have a non-empty domain"); // Altrimenti sarebbe impossibile!
         }
+
+        if (std::find(domain.begin(), domain.end(), UNASSIGNED) != domain.end()) {
+            throw std::invalid_argument("Domain cannot contain UNASSIGNED value");
+        }
     }
 }
 
@@ -146,7 +150,7 @@ bool CSP::constraints_ok_pair(Var x, Value vx, Var y, Value vy, SolverStats *sta
 
         // ATTENZIONE: controllare ordinatamente le variabili!
         if (constraint->first() == x && constraint->second() == y) ok = constraint->is_satisfied(vx, vy);
-        else if (constraint->second() == y && constraint->second() == x) ok = constraint->is_satisfied(vy, vx);
+        else if (constraint->first() == y && constraint->second() == x) ok = constraint->is_satisfied(vy, vx);
 
         if (!ok) return false;
     }
@@ -225,7 +229,7 @@ std::vector <std::vector<Var>> CSP::primal_graph() const {
 
         // Cerco i collegamenti per y e x
         auto& gy = graph[y];
-        if (std::find(gy.begin(), gy.end(), x) == gx.end()) gy.push_back(x);
+        if (std::find(gy.begin(), gy.end(), x) == gy.end()) gy.push_back(x);
     }
 
     return graph;
