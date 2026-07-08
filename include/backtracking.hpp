@@ -1,3 +1,5 @@
+// Questa classe contiene il solver per backtracking
+
 #pragma once
 
 #include "csp.hpp" // Eredita tipi base

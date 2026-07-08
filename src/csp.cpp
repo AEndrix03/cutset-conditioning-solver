@@ -1,4 +1,5 @@
 #include "csp.hpp"
+#include "graph.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -212,8 +213,8 @@ bool CSP::is_complete(const Assignment &assignment) const {
     return true;
 }
 
-std::vector <std::vector<Var>> CSP::primal_graph() const {
-    std::vector<std::vector<Var>> graph(nvars());
+Graph CSP::primal_graph() const {
+    Graph graph(nvars());
     // Lista di adiacenze, tipo graph[0] = {}, graph[1] = {} ...
 
     for (const auto& constraint : constraints_) {

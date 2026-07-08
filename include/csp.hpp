@@ -178,7 +178,7 @@ public:
      * Arco = Vincolo tra due nodi
      * @return
      */
-    std::vector<std::vector<Var>> primal_graph() const; // Grafo primale del CSP
+    Graph primal_graph() const; // Grafo primale del CSP
 
 private:
     std::string name_;
