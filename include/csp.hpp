@@ -12,6 +12,7 @@ using Value = int; // Alias per rappresentare un valore assunto da una variabile
 using Domain = std::vector<Value>; // Alias che rappresenta il dominio di una variabile, ossia la lista dei valori che la var può assumere
 using Domains = std::vector<Domain>; // Domini
 using Assignment = std::vector<Value>; // Rappresenta un'assegnazione parziale o completa
+using Graph = std::vector<std::vector<Var>>;
 
 constexpr Value UNASSIGNED = -1; // CONVENZIONE DI PROGETTO
 

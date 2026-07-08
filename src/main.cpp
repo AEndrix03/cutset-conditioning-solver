@@ -1,44 +1,175 @@
-#include "csp.hpp"
+#include "experiment.hpp"
 
+#include <exception>
 #include <iostream>
-#include <memory>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
-int main() {
-    Domains domains = {
-            {1, 2, 3},
-            {1, 2, 3},
-            {1, 2, 3}
-    };
 
-    CSP csp("toy_chain_lt", domains);
+namespace {
 
-    csp.add_constraint(std::make_unique<LessThanConstraint>(0, 1, "X0 < X1"));
-    csp.add_constraint(std::make_unique<LessThanConstraint>(1, 2, "X1 < X2"));
-
-    Assignment a = csp.empty_assignment();
-
-    // prova assegnamento parziale
-    a[0] = 1;
-    a[1] = 2;
-
-    std::cout << csp.name() << "\n";
-    std::cout << "Consistente parziale? " << csp.is_consistent(a) << "\n";
-
-    // completa: X0=1, X1=2, X2=3
-    a[2] = 3;
-
-    std::cout << "Completo? " << csp.is_complete(a) << "\n";
-    std::cout << "Consistente completo? " << csp.is_consistent(a) << "\n";
-
-    auto graph = csp.primal_graph();
-
-    for (Var x = 0; x < static_cast<Var>(graph.size()); ++x) {
-        std::cout << "X" << x << ": ";
-        for (Var y : graph[x]) {
-            std::cout << "X" << y << " ";
+    bool has_arg(int argc, char **argv, const std::string &key) {
+        for (int i = 1; i < argc; ++i) {
+            if (argv[i] == key) {
+                return true;
+            }
         }
-        std::cout << "\n";
+
+        return false;
     }
 
-    return 0;
+    std::string get_arg(
+            int argc,
+            char **argv,
+            const std::string &key,
+            const std::string &default_value
+    ) {
+        for (int i = 1; i + 1 < argc; ++i) {
+            if (argv[i] == key) {
+                return argv[i + 1];
+            }
+        }
+
+        return default_value;
+    }
+
+    int get_int_arg(
+            int argc,
+            char **argv,
+            const std::string &key,
+            int default_value
+    ) {
+        std::string value = get_arg(argc, argv, key, "");
+
+        if (value.empty()) {
+            return default_value;
+        }
+
+        return std::stoi(value);
+    }
+
+    long long get_long_long_arg(
+            int argc,
+            char **argv,
+            const std::string &key,
+            long long default_value
+    ) {
+        std::string value = get_arg(argc, argv, key, "");
+
+        if (value.empty()) {
+            return default_value;
+        }
+
+        return std::stoll(value);
+    }
+
+    void print_usage() {
+        std::cout
+                << "Cutset CSP Solver\n\n"
+
+                << "Uso batch:\n"
+                << "  ./cutset_csp --all --repeat 5 --csv results/results.csv\n\n"
+
+                << "Esecuzioni singole:\n"
+                << "  ./cutset_csp --problem nqueens --n 8 --solver cutset\n"
+                << "  ./cutset_csp --problem nqueens --n 8 --solver bt\n\n"
+
+                << "  ./cutset_csp --problem quasigroup --order 4 --solver cutset\n"
+                << "  ./cutset_csp --problem quasigroup --order 5 --solver bt\n\n"
+
+                << "  ./cutset_csp --problem graceful --instance path --n 6 --solver cutset\n"
+                << "  ./cutset_csp --problem graceful --instance star --leaves 6 --solver bt\n\n"
+
+                << "Opzioni:\n"
+                << "  --all                         esegue tutte le istanze di default\n"
+                << "  --problem nqueens|quasigroup|graceful\n"
+                << "  --instance path|star          solo per graceful\n"
+                << "  --solver bt|cutset\n"
+                << "  --repeat N                    ripete N volte e prende la mediana\n"
+                << "  --csv PATH                    salva i risultati in CSV\n"
+                << "  --timeout MS                  segnala timeout a posteriori\n"
+                << "  --help                        stampa questo messaggio\n";
+    }
+
+    ProblemInstance make_instance_from_args(int argc, char **argv) {
+        std::string problem = get_arg(argc, argv, "--problem", "");
+
+        if (problem == "nqueens") {
+            int n = get_int_arg(argc, argv, "--n", 8);
+            return make_n_queens_instance(n);
+        }
+
+        if (problem == "quasigroup") {
+            int order = get_int_arg(argc, argv, "--order", 4);
+            return make_quasigroup_instance(order);
+        }
+
+        if (problem == "graceful") {
+            std::string instance = get_arg(argc, argv, "--instance", "path");
+
+            if (instance == "path") {
+                int n = get_int_arg(argc, argv, "--n", 6);
+                return make_graceful_path_instance(n);
+            }
+
+            if (instance == "star") {
+                int leaves = get_int_arg(argc, argv, "--leaves", 6);
+                return make_graceful_star_instance(leaves);
+            }
+
+            throw std::invalid_argument("Unknown graceful instance: " + instance);
+        }
+
+        throw std::invalid_argument("Unknown problem: " + problem);
+    }
+
+}
+
+
+int main(int argc, char **argv) {
+    try {
+        if (argc == 1 || has_arg(argc, argv, "--help")) {
+            print_usage();
+            return 0;
+        }
+
+        int repeat = get_int_arg(argc, argv, "--repeat", 1);
+        long long timeout_ms = get_long_long_arg(argc, argv, "--timeout", 0);
+        std::string csv_path = get_arg(argc, argv, "--csv", "");
+
+        std::vector<ExperimentResult> results;
+
+        if (has_arg(argc, argv, "--all")) {
+            results = run_default_experiments(repeat, timeout_ms);
+        } else {
+            ProblemInstance instance = make_instance_from_args(argc, argv);
+
+            std::string solver_arg = get_arg(argc, argv, "--solver", "cutset");
+            SolverKind solver = solver_from_string(solver_arg);
+
+            results.push_back(
+                    run_repeated_experiment(
+                            instance,
+                            solver,
+                            repeat,
+                            timeout_ms
+                    )
+            );
+        }
+
+        print_results(results);
+
+        if (!csv_path.empty()) {
+            write_results_csv(csv_path, results);
+            std::cout << "\nCSV scritto in: " << csv_path << "\n";
+        }
+
+        return 0;
+
+    } catch (const std::exception &ex) {
+        std::cerr << "Errore: " << ex.what() << "\n\n";
+        print_usage();
+        return 1;
+    }
 }
