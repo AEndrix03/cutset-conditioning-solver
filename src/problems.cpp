@@ -1,5 +1,6 @@
 #include "problems.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <sstream>
@@ -176,181 +177,67 @@ namespace {
         return {};
     }
 
-    bool edge_exists(const std::vector<Edge> &edges, Var u, Var v) {
-        for (const auto &edge: edges) {
-            if ((edge.first == u && edge.second == v) ||
-                (edge.first == v && edge.second == u)) {
-                return true;
+    // Slot disponibili nella giornata: 0..7. Ogni riunione dura esattamente 1 slot.
+    constexpr int meeting_slot_count = 8;
+
+    // Controlli sui conflitti: indici validi, niente riunione in conflitto con se stessa,
+    // tempo di viaggio non negativo.
+    void check_meeting_conflicts(int n_meetings, const std::vector<MeetingConflict> &conflicts) {
+        for (const auto &conflict: conflicts) {
+            check_var(conflict.first, n_meetings);
+            check_var(conflict.second, n_meetings);
+
+            if (conflict.first == conflict.second) {
+                throw std::invalid_argument("A meeting cannot conflict with itself");
             }
-        }
 
-        return false;
-    }
-
-    void add_edge(std::vector<Edge> &edges, Var u, Var v) {
-        if (u == v) {
-            throw std::invalid_argument("Self-loop is not allowed");
-        }
-
-        if (!edge_exists(edges, u, v)) {
-            edges.push_back({u, v});
-        }
-    }
-
-    void check_graph_edges(int n_vertices, const std::vector<Edge> &edges) {
-        check_positive(n_vertices, "n_vertices");
-
-        if (edges.empty()) {
-            throw std::invalid_argument("Graph must contain at least one edge");
-        }
-
-        for (const auto &edge: edges) {
-            check_var(edge.first, n_vertices);
-            check_var(edge.second, n_vertices);
-
-            if (edge.first == edge.second) {
-                throw std::invalid_argument("Graph cannot contain self-loops");
+            if (conflict.travel < 0) {
+                throw std::invalid_argument("Travel time cannot be negative");
             }
         }
     }
 
-    bool every_vertex_has_edge(int n_vertices, const std::vector<Edge> &edges) {
-        std::vector<bool> seen(n_vertices, false);
-
-        for (const auto &edge: edges) {
-            seen[edge.first] = true;
-            seen[edge.second] = true;
+    // Albero binario dei conflitti: la riunione i condivide un partecipante con la
+    // riunione (i-1)/2. Esattamente n-1 conflitti, quindi il grafo dei conflitti è un albero.
+    std::vector<MeetingConflict> meeting_tree_conflicts(int n_meetings) {
+        if (n_meetings < 2) {
+            throw std::invalid_argument("A meeting tree needs at least 2 meetings");
         }
 
-        for (bool value: seen) {
-            if (!value) {
-                return false;
-            }
+        std::vector<MeetingConflict> conflicts;
+
+        for (Var i = 1; i < n_meetings; ++i) {
+            Var parent = (i - 1) / 2;
+            int travel = i % 3;   // spostamento di 0, 1 o 2 slot fra le due sedi
+            conflicts.push_back({parent, i, travel});
         }
 
-        return true;
+        return conflicts;
     }
 
-    // Un arco porta le etichette dei suoi due estremi: le impacchetto in un solo
-    // intero (base = q+1, così ogni etichetta 0..q sta in una "cifra").
-    Value encode_pair(Value first, Value second, int base) {
-        return first * base + second;
-    }
+    // Dominio di ogni riunione: la giornata intera meno gli impegni privati dell'agente.
+    // Qui una riunione su quattro ha l'agente occupato negli ultimi due slot.
+    Domains meeting_domains(int n_meetings) {
+        check_positive(n_meetings, "n_meetings");
 
-    std::pair<Value, Value> decode_pair(Value value, int base) {
-        if (value < 0) {
-            throw std::invalid_argument("Encoded pair cannot be negative");
-        }
+        Domains domains;
+        domains.reserve(n_meetings);
 
-        return {value / base, value % base};
-    }
+        for (Var i = 0; i < n_meetings; ++i) {
+            Domain slots;
 
-    // Dominio di una variabile-arco: tutte le coppie di etichette con estremi diversi.
-    Domain graceful_edge_domain(int q) {
-        int base = q + 1;
-        Domain domain;
+            for (Value slot = 0; slot < meeting_slot_count; ++slot) {
+                bool busy = (i % 4 == 0) && (slot >= meeting_slot_count - 2);
 
-        for (Value first = 0; first <= q; ++first) {
-            for (Value second = 0; second <= q; ++second) {
-                if (first != second) {
-                    domain.push_back(encode_pair(first, second, base));
+                if (!busy) {
+                    slots.push_back(slot);
                 }
             }
+
+            domains.push_back(slots);
         }
 
-        return domain;
-    }
-
-    // Vincolo tra due archi: se condividono un vertice deve avere la stessa etichetta,
-    // vertici diversi devono avere etichette diverse, e le due differenze devono differire.
-    bool graceful_pair_ok(
-            Edge first_edge,
-            Value first_value,
-            Edge second_edge,
-            Value second_value,
-            int q
-    ) {
-        int base = q + 1;
-
-        auto [a, b] = decode_pair(first_value, base);
-        auto [c, d] = decode_pair(second_value, base);
-
-        std::vector<std::pair<Var, Value>> labels = {
-                {first_edge.first,   a},
-                {first_edge.second,  b},
-                {second_edge.first,  c},
-                {second_edge.second, d}
-        };
-
-        for (int i = 0; i < static_cast<int>(labels.size()); ++i) {
-            for (int j = i + 1; j < static_cast<int>(labels.size()); ++j) {
-                bool same_vertex = labels[i].first == labels[j].first;
-                bool same_label = labels[i].second == labels[j].second;
-
-                if (same_vertex && !same_label) {
-                    return false;
-                }
-
-                if (!same_vertex && same_label) {
-                    return false;
-                }
-            }
-        }
-
-        int first_difference = std::abs(a - b);
-        int second_difference = std::abs(c - d);
-
-        return first_difference != second_difference;
-    }
-
-    // Dalle variabili-arco risalgo alle etichette dei vertici; ritorna false se gli
-    // archi che toccano lo stesso vertice non concordano sull'etichetta.
-    bool reconstruct_graceful_labels(
-            const Assignment &assignment,
-            int n_vertices,
-            const std::vector<Edge> &edges,
-            std::vector<Value> &labels
-    ) {
-        int q = static_cast<int>(edges.size());
-        int base = q + 1;
-
-        if (static_cast<int>(assignment.size()) != q) {
-            return false;
-        }
-
-        labels.assign(n_vertices, UNASSIGNED);
-
-        for (int i = 0; i < q; ++i) {
-            auto [first_label, second_label] = decode_pair(assignment[i], base);
-
-            if (first_label < 0 || first_label > q ||
-                second_label < 0 || second_label > q ||
-                first_label == second_label) {
-                return false;
-            }
-
-            Var u = edges[i].first;
-            Var v = edges[i].second;
-
-            if (labels[u] != UNASSIGNED && labels[u] != first_label) {
-                return false;
-            }
-
-            if (labels[v] != UNASSIGNED && labels[v] != second_label) {
-                return false;
-            }
-
-            labels[u] = first_label;
-            labels[v] = second_label;
-        }
-
-        for (Value label: labels) {
-            if (label == UNASSIGNED) {
-                return false;
-            }
-        }
-
-        return true;
+        return domains;
     }
 
 }
@@ -555,165 +442,120 @@ ProblemInstance make_quasigroup_instance(int order) {
     );
 }
 
-CSP make_graceful_graph(
+CSP make_meeting_scheduling(
         const std::string &name,
-        int n_vertices,
-        const std::vector<Edge> &edges
+        const Domains &domains,
+        const std::vector<MeetingConflict> &conflicts
 ) {
-    check_graph_edges(n_vertices, edges);
-
-    if (!every_vertex_has_edge(n_vertices, edges)) {
-        throw std::invalid_argument("Graceful instances used here must not contain isolated vertices");
-    }
-
-    // Modello: una variabile per arco (non per vertice), così il CSP resta binario.
-    int q = static_cast<int>(edges.size());
-    Domain edge_domain = graceful_edge_domain(q);
-    Domains domains = repeated_domains(q, edge_domain);
+    check_meeting_conflicts(static_cast<int>(domains.size()), conflicts);
 
     CSP csp(name, domains);
 
-    // Un vincolo per ogni coppia di archi.
-    for (Var e1 = 0; e1 < q; ++e1) {
-        for (Var e2 = e1 + 1; e2 < q; ++e2) {
-            Edge first_edge = edges[e1];
-            Edge second_edge = edges[e2];
+    // Un vincolo per conflitto: le due riunioni non si sovrappongono e lasciano il
+    // tempo di viaggio. Durata fissa a 1 slot, quindi |X_i - X_j| >= 1 + travel.
+    for (const auto &conflict: conflicts) {
+        int travel = conflict.travel;
 
-            csp.add_constraint(std::make_unique<PredicateConstraint>(
-                    e1,
-                    e2,
-                    [first_edge, second_edge, q](Value first_value, Value second_value) {
-                        return graceful_pair_ok(
-                                first_edge,
-                                first_value,
-                                second_edge,
-                                second_value,
-                                q
-                        );
-                    },
-                    "graceful_pair_consistency"
-            ));
-        }
+        csp.add_constraint(std::make_unique<PredicateConstraint>(
+                conflict.first,
+                conflict.second,
+                [travel](Value first_start, Value second_start) {
+                    return std::abs(first_start - second_start) >= 1 + travel;
+                },
+                "meeting_arrival_time"
+        ));
     }
 
     return csp;
 }
 
-bool validate_graceful_graph(
+bool validate_meeting_scheduling(
         const Assignment &assignment,
-        int n_vertices,
-        const std::vector<Edge> &edges
+        const Domains &domains,
+        const std::vector<MeetingConflict> &conflicts
 ) {
-    if (n_vertices <= 0 || edges.empty()) {
+    int n_meetings = static_cast<int>(domains.size());
+
+    if (n_meetings <= 0) {
         return false;
     }
 
-    int q = static_cast<int>(edges.size());
-
-    if (static_cast<int>(assignment.size()) != q) {
+    if (static_cast<int>(assignment.size()) != n_meetings) {
         return false;
     }
 
-    std::vector<Value> labels;
+    // Ogni riunione ha uno slot preso dal suo dominio, niente variabili non assegnate.
+    for (Var i = 0; i < n_meetings; ++i) {
+        Value slot = assignment[i];
 
-    if (!reconstruct_graceful_labels(assignment, n_vertices, edges, labels)) {
-        return false;
+        if (slot == UNASSIGNED) {
+            return false;
+        }
+
+        if (std::find(domains[i].begin(), domains[i].end(), slot) == domains[i].end()) {
+            return false;
+        }
     }
 
-    std::vector<bool> used_vertex_labels(q + 1, false);
-
-    for (Value label: labels) {
-        if (label < 0 || label > q) {
+    // Ogni conflitto: indici validi, niente self-loop, distanza temporale rispettata.
+    for (const auto &conflict: conflicts) {
+        if (conflict.first < 0 || conflict.first >= n_meetings ||
+            conflict.second < 0 || conflict.second >= n_meetings) {
             return false;
         }
 
-        if (used_vertex_labels[label]) {
+        if (conflict.first == conflict.second) {
             return false;
         }
 
-        used_vertex_labels[label] = true;
-    }
+        int distance = std::abs(assignment[conflict.first] - assignment[conflict.second]);
 
-    std::vector<bool> used_edge_labels(q + 1, false);
-
-    for (const auto &edge: edges) {
-        Value difference = std::abs(labels[edge.first] - labels[edge.second]);
-
-        if (difference < 1 || difference > q) {
+        if (distance < 1 + conflict.travel) {
             return false;
         }
-
-        if (used_edge_labels[difference]) {
-            return false;
-        }
-
-        used_edge_labels[difference] = true;
     }
 
     return true;
 }
 
-std::vector<Edge> graceful_path_edges(int n_vertices) {
-    check_positive(n_vertices, "n_vertices");
+ProblemInstance make_meeting_tree_instance(int n_meetings) {
+    Domains domains = meeting_domains(n_meetings);
+    std::vector<MeetingConflict> conflicts = meeting_tree_conflicts(n_meetings);
 
-    if (n_vertices < 2) {
-        throw std::invalid_argument("Path graph needs at least 2 vertices");
-    }
-
-    std::vector<Edge> edges;
-
-    for (Var v = 0; v + 1 < n_vertices; ++v) {
-        add_edge(edges, v, v + 1);
-    }
-
-    return edges;
-}
-
-std::vector<Edge> graceful_star_edges(int n_leaves) {
-    check_positive(n_leaves, "n_leaves");
-
-    std::vector<Edge> edges;
-
-    for (Var leaf = 1; leaf <= n_leaves; ++leaf) {
-        add_edge(edges, 0, leaf);
-    }
-
-    return edges;
-}
-
-ProblemInstance make_graceful_path_instance(int n_vertices) {
-    std::vector<Edge> edges = graceful_path_edges(n_vertices);
-
-    std::ostringstream name;
-    name << "path_" << n_vertices;
-
-    CSP csp = make_graceful_graph(name.str(), n_vertices, edges);
+    std::string name = make_name("tree", n_meetings);
+    CSP csp = make_meeting_scheduling(name, domains, conflicts);
 
     return ProblemInstance(
-            "graceful",
-            name.str(),
+            "meeting",
+            name,
             std::move(csp),
-            [n_vertices, edges](const Assignment &assignment) {
-                return validate_graceful_graph(assignment, n_vertices, edges);
+            [domains, conflicts](const Assignment &assignment) {
+                return validate_meeting_scheduling(assignment, domains, conflicts);
             }
     );
 }
 
-ProblemInstance make_graceful_star_instance(int n_leaves) {
-    std::vector<Edge> edges = graceful_star_edges(n_leaves);
-    int n_vertices = n_leaves + 1;
+ProblemInstance make_meeting_single_cycle_instance(int n_meetings) {
+    if (n_meetings < 4) {
+        throw std::invalid_argument("A single-cycle meeting instance needs at least 4 meetings");
+    }
 
-    std::ostringstream name;
-    name << "star_" << n_leaves << "_leaves";
+    Domains domains = meeting_domains(n_meetings);
+    std::vector<MeetingConflict> conflicts = meeting_tree_conflicts(n_meetings);
 
-    CSP csp = make_graceful_graph(name.str(), n_vertices, edges);
+    // Un solo conflitto in più chiude un ciclo (di lunghezza pari) fra riunioni già
+    // collegate dall'albero: il grafo diventa unicyclic e basta un cutset di una variabile.
+    conflicts.push_back({2, 3, 2});
+
+    std::string name = make_name("single_cycle", n_meetings);
+    CSP csp = make_meeting_scheduling(name, domains, conflicts);
 
     return ProblemInstance(
-            "graceful",
-            name.str(),
+            "meeting",
+            name,
             std::move(csp),
-            [n_vertices, edges](const Assignment &assignment) {
-                return validate_graceful_graph(assignment, n_vertices, edges);
+            [domains, conflicts](const Assignment &assignment) {
+                return validate_meeting_scheduling(assignment, domains, conflicts);
             }
     );
 }
@@ -727,8 +569,8 @@ std::vector<ProblemInstance> make_default_instances() {
     instances.push_back(make_quasigroup_instance(4));
     instances.push_back(make_quasigroup_instance(5));
 
-    instances.push_back(make_graceful_path_instance(6));
-    instances.push_back(make_graceful_star_instance(6));
+    instances.push_back(make_meeting_tree_instance(40));
+    instances.push_back(make_meeting_single_cycle_instance(40));
 
     return instances;
 }

@@ -6,7 +6,6 @@
 
 #include <functional>
 #include <string>
-#include <utility>
 #include <vector>
 
 /*
@@ -16,7 +15,16 @@
  *   - come validare una soluzione senza riusare i vincoli del CSP.
  */
 
-using Edge = std::pair<Var, Var>;
+/*
+ * Un conflitto collega due riunioni che condividono almeno un partecipante: fra le due
+ * deve passare il tempo di finire la prima e raggiungere la sede della seconda.
+ * travel = slot di spostamento fra le due sedi (ogni riunione dura 1 slot).
+ */
+struct MeetingConflict {
+    Var first;
+    Var second;
+    int travel;
+};
 
 /**
  * Istanza concreta usata negli esperimenti.
@@ -67,28 +75,27 @@ bool validate_quasigroup_completion(
 
 ProblemInstance make_quasigroup_instance(int order);
 
-// Graceful graphs (CSPLib prob053): etichetta i vertici così che le differenze sugli
-// archi siano tutte diverse. Qui la variabile è l'arco (coppia di etichette codificata).
-CSP make_graceful_graph(
+// Meeting scheduling (CSPLib prob046): una variabile per riunione, il valore è lo slot
+// iniziale. Due riunioni con un partecipante comune non possono sovrapporsi e devono
+// lasciare il tempo di viaggio: |X_i - X_j| >= 1 + travel. Gli impegni privati degli
+// agenti sono slot tolti dal dominio, non vincoli a parte.
+CSP make_meeting_scheduling(
         const std::string &name,
-        int n_vertices,
-        const std::vector<Edge> &edges
+        const Domains &domains,
+        const std::vector<MeetingConflict> &conflicts
 );
 
-bool validate_graceful_graph(
+bool validate_meeting_scheduling(
         const Assignment &assignment,
-        int n_vertices,
-        const std::vector<Edge> &edges
+        const Domains &domains,
+        const std::vector<MeetingConflict> &conflicts
 );
 
-// Due topologie di grafo usate come istanze: cammino e stella.
-std::vector<Edge> graceful_path_edges(int n_vertices);
+// Due topologie del grafo dei conflitti usate come istanze: albero (cutset vuoto) e
+// grafo con un solo ciclo (cutset di una variabile).
+ProblemInstance make_meeting_tree_instance(int n_meetings);
 
-std::vector<Edge> graceful_star_edges(int n_leaves);
-
-ProblemInstance make_graceful_path_instance(int n_vertices);
-
-ProblemInstance make_graceful_star_instance(int n_leaves);
+ProblemInstance make_meeting_single_cycle_instance(int n_meetings);
 
 
 // Le istanze di default usate dal benchmark (--all): 3 problemi x 2 istanze.

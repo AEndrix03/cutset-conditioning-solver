@@ -63,13 +63,13 @@ namespace {
                 << "  ./cutset_csp --problem quasigroup --order 4 --solver cutset\n"
                 << "  ./cutset_csp --problem quasigroup --order 5 --solver bt\n\n"
 
-                << "  ./cutset_csp --problem graceful --instance path --n 6 --solver cutset\n"
-                << "  ./cutset_csp --problem graceful --instance star --leaves 6 --solver bt\n\n"
+                << "  ./cutset_csp --problem meeting --instance tree --meetings 40 --solver cutset\n"
+                << "  ./cutset_csp --problem meeting --instance single_cycle --meetings 40 --solver bt\n\n"
 
                 << "Opzioni:\n"
                 << "  --all                         esegue tutte le istanze di default\n"
-                << "  --problem nqueens|quasigroup|graceful\n"
-                << "  --instance path|star          solo per graceful\n"
+                << "  --problem nqueens|quasigroup|meeting\n"
+                << "  --instance tree|single_cycle  solo per meeting\n"
                 << "  --solver bt|cutset\n"
                 << "  --repeat N                    ripete N volte e prende la mediana\n"
                 << "  --help                        stampa questo messaggio\n";
@@ -89,20 +89,19 @@ namespace {
             return make_quasigroup_instance(order);
         }
 
-        if (problem == "graceful") {
-            std::string instance = get_arg(argc, argv, "--instance", "path");
+        if (problem == "meeting") {
+            std::string instance = get_arg(argc, argv, "--instance", "tree");
+            int meetings = get_int_arg(argc, argv, "--meetings", 40);
 
-            if (instance == "path") {
-                int n = get_int_arg(argc, argv, "--n", 6);
-                return make_graceful_path_instance(n);
+            if (instance == "tree") {
+                return make_meeting_tree_instance(meetings);
             }
 
-            if (instance == "star") {
-                int leaves = get_int_arg(argc, argv, "--leaves", 6);
-                return make_graceful_star_instance(leaves);
+            if (instance == "single_cycle") {
+                return make_meeting_single_cycle_instance(meetings);
             }
 
-            throw std::invalid_argument("Unknown graceful instance: " + instance);
+            throw std::invalid_argument("Unknown meeting instance: " + instance);
         }
 
         throw std::invalid_argument("Unknown problem: " + problem);
