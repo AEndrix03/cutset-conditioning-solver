@@ -32,28 +32,13 @@ namespace {
         return active;
     }
 
-    /**
-     * removed[x] = true se x non appartiene al grafo residuo.
-     *
-     * Serve perché le funzioni di graph.hpp ragionano in termini di nodi rimossi.
-     */
-    std::vector<bool> removed_variables(const Assignment &assignment) {
-        std::vector<bool> removed(assignment.size(), false);
-
-        for (Var x = 0; x < static_cast<Var>(assignment.size()); ++x) {
-            removed[x] = assignment[x] != UNASSIGNED;
-        }
-
-        return removed;
-    }
-
 }
 
-std::optional <Assignment> TreeSolver::solve(const CSP &csp, SolverStats *stats) const {
+std::optional<Assignment> TreeSolver::solve(const CSP &csp, SolverStats *stats) const {
     return solve(csp, csp.empty_assignment(), stats);
 }
 
-std::optional <Assignment> TreeSolver::solve(
+std::optional<Assignment> TreeSolver::solve(
         const CSP &csp,
         const Assignment &partial_assignment,
         SolverStats *stats
@@ -74,96 +59,74 @@ std::optional <Assignment> TreeSolver::solve(
         }
 
         if (!value_in_domain(csp.domains()[x], assignment[x])) {
-            if (stats != nullptr) stats->solved = false;
             return std::nullopt;
         }
     }
 
-    /*
-     * Prima controllo che il cutset, o comunque la parte già assegnata,
-     * sia internamente consistente.
-     */
+    // Prima controllo che il cutset, o comunque la parte già assegnata, sia internamente consistente
     if (!csp.is_consistent(assignment, stats)) {
-        if (stats != nullptr) stats->solved = false;
         return std::nullopt;
     }
 
-    /*
-     * Caso limite:
-     * se l'assegnamento è già completo, basta la consistenza controllata sopra.
-     */
+    // Caso limite: se l'assegnamento è già completo, basta la consistenza controllata sopra.
     if (csp.is_complete(assignment)) {
-        if (stats != nullptr) stats->solved = true;
         return assignment;
     }
 
     Graph graph = csp.primal_graph();
 
     std::vector<bool> active = active_variables(assignment);
-    std::vector<bool> removed = removed_variables(assignment);
 
     /*
-     * Il TreeSolver deve essere usato solo quando il grafo residuo è una foresta.
-     * Nel cutset conditioning questa proprietà viene garantita rimuovendo il cutset.
+     * removed è il complemento di active: una variabile è fuori dal grafo residuo
+     * se e solo se è già assegnata. Le funzioni di graph.hpp ragionano su removed.
      */
+    std::vector<bool> removed(active.size());
+    for (Var x = 0; x < static_cast<Var>(active.size()); ++x) {
+        removed[x] = !active[x];
+    }
+
     if (!is_forest_after_removing(graph, removed)) {
         throw std::invalid_argument("TreeSolver requires the residual primal graph to be a forest");
     }
 
-    /*
-     * Primo filtro dei domini:
-     * ogni variabile residua tiene solo i valori compatibili con le variabili già assegnate.
-     */
-    std::optional <Domains> maybe_domains = build_initial_domains(csp, assignment, active, stats);
+    // Primo filtro dei domini: ogni variabile residua tiene solo i valori compatibili con le variabili già assegnate.
+    std::optional<Domains> maybe_domains = build_initial_domains(csp, assignment, active, stats);
 
     if (!maybe_domains.has_value()) {
-        if (stats != nullptr) stats->solved = false;
         return std::nullopt;
     }
 
     Domains domains = std::move(maybe_domains.value());
 
-    std::vector <Var> order;
-    std::vector <Var> parent;
+    std::vector<Var> order;
+    std::vector<Var> parent;
 
     build_forest_order(graph, active, order, parent);
 
-    /*
-     * Propagazione bottom-up:
-     * elimina dai domini dei padri i valori che non hanno supporto nei figli.
-     */
+    // Propagazione bottom-up: elimina dai domini dei padri i valori che non hanno supporto nei figli.
     if (!enforce_directional_arc_consistency(csp, domains, order, parent, stats)) {
-        if (stats != nullptr) stats->solved = false;
         return std::nullopt;
     }
 
-    /*
-     * Costruzione concreta della soluzione:
-     * una volta fatta la potatura bottom-up, basta scendere dalle radici verso le foglie.
-     */
+    // Costruzione concreta della soluzione: top-down basta scendere dalle radici verso le foglie.
     if (!construct_solution(csp, assignment, domains, order, stats)) {
-        if (stats != nullptr) stats->solved = false;
         return std::nullopt;
     }
 
-    /*
-     * Controllo finale.
-     * In teoria non dovrebbe fallire.
-     */
+    // Controllo volutamente ridondante per assicurarci che funzioni
     if (!csp.is_complete(assignment) || !csp.is_consistent(assignment, stats)) {
-        if (stats != nullptr) stats->solved = false;
         return std::nullopt;
     }
 
-    if (stats != nullptr) stats->solved = true;
     return assignment;
 }
 
 void TreeSolver::build_forest_order(
         const Graph &graph,
         const std::vector<bool> &active,
-        std::vector <Var> &order,
-        std::vector <Var> &parent
+        std::vector<Var> &order,
+        std::vector<Var> &parent
 ) const {
     int n = static_cast<int>(graph.size());
 
@@ -181,7 +144,7 @@ void TreeSolver::build_forest_order(
             continue;
         }
 
-        std::vector <Var> stack;
+        std::vector<Var> stack;
         stack.push_back(root);
         visited[root] = true;
         parent[root] = -1;
@@ -205,7 +168,7 @@ void TreeSolver::build_forest_order(
     }
 }
 
-std::optional <Domains> TreeSolver::build_initial_domains(
+std::optional<Domains> TreeSolver::build_initial_domains(
         const CSP &csp,
         Assignment &assignment,
         const std::vector<bool> &active,
@@ -214,9 +177,7 @@ std::optional <Domains> TreeSolver::build_initial_domains(
     Domains domains(csp.nvars());
 
     for (Var x = 0; x < csp.nvars(); ++x) {
-        /*
-         * Per le variabili già assegnate salvo il dominio.
-         */
+        // Per le variabili già assegnate salvo il dominio.
         if (!active[x]) {
             domains[x].push_back(assignment[x]);
             continue;
@@ -257,9 +218,7 @@ bool TreeSolver::revise_parent_against_child(
 ) const {
     Domain pruned_parent_domain;
 
-    /*
-     * Un valore del padre è valido solo se ha almeno un supporto nel dominio del figlio.
-     */
+    // Un valore del padre è valido solo se ha almeno un supporto nel dominio del figlio.
     for (Value parent_value: domains[parent]) {
         bool supported = false;
 
@@ -283,8 +242,8 @@ bool TreeSolver::revise_parent_against_child(
 bool TreeSolver::enforce_directional_arc_consistency(
         const CSP &csp,
         Domains &domains,
-        const std::vector <Var> &order,
-        const std::vector <Var> &parent,
+        const std::vector<Var> &order,
+        const std::vector<Var> &parent,
         SolverStats *stats
 ) const {
     /*
@@ -295,7 +254,6 @@ bool TreeSolver::enforce_directional_arc_consistency(
         Var child = order[i];
         Var p = parent[child];
 
-        // Le radici non hanno padre
         if (p == -1) {
             continue;
         }
@@ -312,7 +270,7 @@ bool TreeSolver::construct_solution(
         const CSP &csp,
         Assignment &assignment,
         const Domains &domains,
-        const std::vector <Var> &order,
+        const std::vector<Var> &order,
         SolverStats *stats
 ) const {
     /*

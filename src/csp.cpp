@@ -145,7 +145,7 @@ bool CSP::constraints_ok_pair(Var x, Value vx, Var y, Value vy, SolverStats *sta
         // Conteggio controlli su vincoli
         if (stats != nullptr) stats->constraint_checks++;
 
-        bool ok;
+        bool ok = true;
 
         // ATTENZIONE: controllare ordinatamente le variabili!
         if (constraint->first() == x && constraint->second() == y) ok = constraint->is_satisfied(vx, vy);

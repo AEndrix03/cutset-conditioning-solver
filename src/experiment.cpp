@@ -14,6 +14,7 @@
 
 namespace {
 
+    // Somma dei gradi = 2 * archi (ogni arco è in due liste di adiacenza), quindi /2.
     int count_edges(const Graph &graph) {
         int sum = 0;
 
@@ -61,6 +62,7 @@ ExperimentResult run_single_experiment(
     SolverStats stats;
     std::optional<Assignment> solution;
 
+    // Cronometro attorno alla sola risoluzione, niente setup.
     auto start = std::chrono::steady_clock::now();
 
     if (solver == SolverKind::Backtracking) {
@@ -77,8 +79,6 @@ ExperimentResult run_single_experiment(
 
     double elapsed_ms =
             std::chrono::duration<double, std::milli>(end - start).count();
-
-    stats.milliseconds = elapsed_ms;
 
     bool valid = false;
 
@@ -108,7 +108,6 @@ ExperimentResult run_single_experiment(
 
     result.repeat = 1;
     result.time_ms = elapsed_ms;
-    result.min_time_ms = elapsed_ms;
 
     return result;
 }
@@ -122,6 +121,7 @@ ExperimentResult run_repeated_experiment(
         return run_single_experiment(instance, solver);
     }
 
+    // Ripeto N volte e tengo la mediana: più robusta al rumore della singola misura.
     std::vector<ExperimentResult> runs;
     runs.reserve(repeat);
 
@@ -140,7 +140,6 @@ ExperimentResult run_repeated_experiment(
     ExperimentResult median = runs[runs.size() / 2];
 
     median.repeat = repeat;
-    median.min_time_ms = runs.front().time_ms;
 
     return median;
 }

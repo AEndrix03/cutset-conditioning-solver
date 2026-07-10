@@ -7,6 +7,9 @@
 #include <vector>
 
 /**
+ * Verifica la proprietà richiesta dal cutset conditioning (R&N 6.5.1): rimosso il
+ * cutset, il grafo residuo deve essere una foresta.
+ *
  * @param graph Grafo
  * @param removed  Nodi rimossi
  * @return Se il grafo rimanente è una foresta, ritorna true
@@ -14,27 +17,7 @@
 bool is_forest_after_removing(const Graph &graph, const std::vector<bool> &removed);
 
 /**
- * @param graph Grafo
- * @return Returna true se il grafo è una foresta
- */
-bool is_forest(const Graph &graph);
-
-
-/**
- * Conta il grado di una variabile, ossia quanti vicini non rimossi ha ancora
- */
-int residual_degree(const Graph &graph, Var x, const std::vector<bool> &removed);
-
-/**
- * Calcola il 2-core del grafo residuo
- * @param graph Grafo
- * @param removed Nodi rimossi
- * @return
- */
-std::vector<bool> two_core_vertices(const Graph &graph, const std::vector<bool> &removed);
-
-/**
- * Euristica "ingorda" per trovare un cycle cutset
+ * Euristica greedy per trovare un cycle cutset
  *
  * Logica:
  * - Calcola 2-core del residuo
@@ -42,8 +25,10 @@ std::vector<bool> two_core_vertices(const Graph &graph, const std::vector<bool> 
  * - altrimenti rimuove il nodo di grado residuo massimo (il più collegato)
  * - ripete
  *
- * Non garantisce minimo, ma va bene per ridurre la computazione.
+ * Il cycle cutset è il concetto alla base del cutset conditioning (R&N 6.5.1, Dechter 2006).
+ * Il criterio "grado massimo" richiama la degree heuristic (R&N 6.3.1),
+ * qui riadattata alla scelta del cutset ("). 2-core e peeling sono teoria dei grafi standard.
  * @param graph
  * @return
  */
-std::vector <Var> greedy_cycle_cutset(const Graph &graph);
+std::vector<Var> greedy_cycle_cutset(const Graph &graph);

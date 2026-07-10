@@ -7,6 +7,34 @@
 #include <optional>
 #include <vector>
 
+/*
+ * Risolve un CSP il cui grafo primale (residuo) è una foresta.
+ * È l'algoritmo TREE-CSP-SOLVER di R&N 6.5.1.
+ *
+ * Pseudocodice dal libro (R&N 6.5.1):
+ *
+ *   function RISOLUTORE-CSP-ALBERO(csp) returns una soluzione, o fallimento
+ *       inputs: csp, un CSP con componenti X, D, C
+ *       n <- numero di variabili in X
+ *       assegnamento <- un assegnamento vuoto
+ *       radice <- una qualsiasi variabile in X
+ *       X <- OrdinamentoTopologico(X, radice)
+ *       for j = n downto 2 do
+ *           RENDI-ARCO-CONSISTENTE(PADRE(Xj), Xj)
+ *           if non può essere reso consistente then return fallimento
+ *       for i = 1 to n do
+ *           assegnamento[Xi] <- qualsiasi valore consistente da Di
+ *           if non esiste valore consistente then return fallimento
+ *       return assegnamento
+ *
+ * Corrispondenza con le tre fasi del codice:
+ *   1. ordina le variabili radice -> foglie (build_forest_order = OrdinamentoTopologico);
+ *   2. arc consistency direzionata foglie -> radice: per ogni arco padre-figlio tiene nel
+ *      padre solo i valori con un supporto nel figlio (enforce_directional_arc_consistency
+ *      = RENDI-ARCO-CONSISTENTE);
+ *   3. assegna radice -> foglie un valore compatibile col padre: dopo la fase 2 esiste
+ *      sempre, quindi zero backtracking (construct_solution).
+ */
 class TreeSolver {
 public:
 
@@ -19,7 +47,7 @@ public:
      * @param stats Statistiche
      * @return Assegnamento completo e consistente se esiste, altrimenti vuoto (optional)
      */
-    std::optional <Assignment> solve(const CSP &csp, SolverStats *stats = nullptr) const;
+    std::optional<Assignment> solve(const CSP &csp, SolverStats *stats = nullptr) const;
 
     /**
      * Solver del CSP, partendo da un assegnamento parziole.
@@ -31,7 +59,7 @@ public:
      * @param stats Stats
      * @return Assegnamento completo e consistente se esiste, altrimenti vuoto
      */
-    std::optional <Assignment> solve(const CSP &csp, const Assignment &assignment, SolverStats *stats = nullptr) const;
+    std::optional<Assignment> solve(const CSP &csp, const Assignment &assignment, SolverStats *stats = nullptr) const;
 
 private:
     /**
@@ -43,8 +71,8 @@ private:
     void build_forest_order(
             const Graph &graph,
             const std::vector<bool> &active,
-            std::vector <Var> &order,
-            std::vector <Var> &parent
+            std::vector<Var> &order,
+            std::vector<Var> &parent
     ) const;
 
     /**
@@ -53,7 +81,7 @@ private:
      * Ogni dominio viene filtrato rispetto alle variabili già assegnate.
      * Questo è il primo effetto del conditioning: il cutset riduce i domini residui.
      */
-    std::optional <Domains> build_initial_domains(
+    std::optional<Domains> build_initial_domains(
             const CSP &csp,
             Assignment &assignment,
             const std::vector<bool> &active,
@@ -83,8 +111,8 @@ private:
     bool enforce_directional_arc_consistency(
             const CSP &csp,
             Domains &domains,
-            const std::vector <Var> &order,
-            const std::vector <Var> &parent,
+            const std::vector<Var> &order,
+            const std::vector<Var> &parent,
             SolverStats *stats
     ) const;
 
@@ -98,7 +126,7 @@ private:
             const CSP &csp,
             Assignment &assignment,
             const Domains &domains,
-            const std::vector <Var> &order,
+            const std::vector<Var> &order,
             SolverStats *stats
     ) const;
 };

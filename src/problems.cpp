@@ -1,9 +1,7 @@
 #include "problems.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <memory>
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -70,6 +68,7 @@ namespace {
         return out.str();
     }
 
+    // Appiattisco la griglia (row, col) in un indice di variabile lineare.
     Var cell_var(int row, int col, int ncols) {
         return row * ncols + col;
     }
@@ -78,6 +77,7 @@ namespace {
         csp.add_constraint(std::make_unique<NotEqualConstraint>(x, y, name));
     }
 
+    // all-different su k variabili = k*(k-1)/2 vincoli binari "!=": così il CSP resta binario.
     void add_pairwise_all_different(
             CSP &csp,
             const std::vector<Var> &vars,
@@ -109,6 +109,7 @@ namespace {
         }
     }
 
+    // Dominio di ogni cella: 1..order se libera, il solo valore fissato se è un clue.
     Domains quasigroup_domains(
             int order,
             const std::vector<std::vector<Value>> &clues
@@ -230,6 +231,8 @@ namespace {
         return true;
     }
 
+    // Un arco porta le etichette dei suoi due estremi: le impacchetto in un solo
+    // intero (base = q+1, così ogni etichetta 0..q sta in una "cifra").
     Value encode_pair(Value first, Value second, int base) {
         return first * base + second;
     }
@@ -242,6 +245,7 @@ namespace {
         return {value / base, value % base};
     }
 
+    // Dominio di una variabile-arco: tutte le coppie di etichette con estremi diversi.
     Domain graceful_edge_domain(int q) {
         int base = q + 1;
         Domain domain;
@@ -257,6 +261,8 @@ namespace {
         return domain;
     }
 
+    // Vincolo tra due archi: se condividono un vertice deve avere la stessa etichetta,
+    // vertici diversi devono avere etichette diverse, e le due differenze devono differire.
     bool graceful_pair_ok(
             Edge first_edge,
             Value first_value,
@@ -297,6 +303,8 @@ namespace {
         return first_difference != second_difference;
     }
 
+    // Dalle variabili-arco risalgo alle etichette dei vertici; ritorna false se gli
+    // archi che toccano lo stesso vertice non concordano sull'etichetta.
     bool reconstruct_graceful_labels(
             const Assignment &assignment,
             int n_vertices,
@@ -347,28 +355,11 @@ namespace {
 
 }
 
-std::string NQueensFamily::name() const {
-    return "nqueens";
-}
-
-std::string NQueensFamily::csplib_id() const {
-    return "prob054";
-}
-
-std::string NQueensFamily::description() const {
-    return "N regine su scacchiera n x n, nessuna in conflitto con un'altra";
-}
-
-std::vector<ProblemInstance> NQueensFamily::default_instances() const {
-    std::vector<ProblemInstance> instances;
-    instances.push_back(make_n_queens_instance(8));
-    instances.push_back(make_n_queens_instance(10));
-    return instances;
-}
-
 CSP make_n_queens(int n) {
     check_positive(n, "n");
 
+    // Una variabile per colonna, il valore è la riga della regina: le colonne sono
+    // già distinte per costruzione, restano da vietare stessa riga e stessa diagonale.
     Domains domains = repeated_domains(n, range_domain(0, n - 1));
     CSP csp(make_name("n_queens", n), domains);
 
@@ -437,25 +428,6 @@ ProblemInstance make_n_queens_instance(int n) {
     );
 }
 
-std::string QuasigroupCompletionFamily::name() const {
-    return "quasigroup";
-}
-
-std::string QuasigroupCompletionFamily::csplib_id() const {
-    return "prob067";
-}
-
-std::string QuasigroupCompletionFamily::description() const {
-    return "completare un quadrato latino parziale rispettando righe e colonne";
-}
-
-std::vector<ProblemInstance> QuasigroupCompletionFamily::default_instances() const {
-    std::vector<ProblemInstance> instances;
-    instances.push_back(make_quasigroup_instance(4));
-    instances.push_back(make_quasigroup_instance(5));
-    return instances;
-}
-
 CSP make_quasigroup_completion(
         int order,
         const std::vector<std::vector<Value>> &clues
@@ -465,6 +437,7 @@ CSP make_quasigroup_completion(
     Domains domains = quasigroup_domains(order, clues);
     CSP csp(make_name("quasigroup_completion", order), domains);
 
+    // All-different su ogni riga e ogni colonna, spezzato in vincoli binari a coppie.
     for (int r = 0; r < order; ++r) {
         std::vector<Var> row_vars;
         row_vars.reserve(order);
@@ -582,25 +555,6 @@ ProblemInstance make_quasigroup_instance(int order) {
     );
 }
 
-std::string GracefulGraphsFamily::name() const {
-    return "graceful";
-}
-
-std::string GracefulGraphsFamily::csplib_id() const {
-    return "prob053";
-}
-
-std::string GracefulGraphsFamily::description() const {
-    return "etichettare i vertici di un grafo in modo che le differenze sugli archi siano tutte diverse";
-}
-
-std::vector<ProblemInstance> GracefulGraphsFamily::default_instances() const {
-    std::vector<ProblemInstance> instances;
-    instances.push_back(make_graceful_path_instance(6));
-    instances.push_back(make_graceful_star_instance(6));
-    return instances;
-}
-
 CSP make_graceful_graph(
         const std::string &name,
         int n_vertices,
@@ -612,12 +566,14 @@ CSP make_graceful_graph(
         throw std::invalid_argument("Graceful instances used here must not contain isolated vertices");
     }
 
+    // Modello: una variabile per arco (non per vertice), così il CSP resta binario.
     int q = static_cast<int>(edges.size());
     Domain edge_domain = graceful_edge_domain(q);
     Domains domains = repeated_domains(q, edge_domain);
 
     CSP csp(name, domains);
 
+    // Un vincolo per ogni coppia di archi.
     for (Var e1 = 0; e1 < q; ++e1) {
         for (Var e2 = e1 + 1; e2 < q; ++e2) {
             Edge first_edge = edges[e1];
@@ -762,27 +718,17 @@ ProblemInstance make_graceful_star_instance(int n_leaves) {
     );
 }
 
-std::vector<std::unique_ptr<ProblemFamily>> make_problem_families() {
-    std::vector<std::unique_ptr<ProblemFamily>> families;
-
-    families.push_back(std::make_unique<NQueensFamily>());
-    families.push_back(std::make_unique<QuasigroupCompletionFamily>());
-    families.push_back(std::make_unique<GracefulGraphsFamily>());
-
-    return families;
-}
-
 std::vector<ProblemInstance> make_default_instances() {
     std::vector<ProblemInstance> instances;
-    std::vector<std::unique_ptr<ProblemFamily>> families = make_problem_families();
 
-    for (const auto &family: families) {
-        std::vector<ProblemInstance> family_instances = family->default_instances();
+    instances.push_back(make_n_queens_instance(8));
+    instances.push_back(make_n_queens_instance(10));
 
-        for (auto &instance: family_instances) {
-            instances.push_back(std::move(instance));
-        }
-    }
+    instances.push_back(make_quasigroup_instance(4));
+    instances.push_back(make_quasigroup_instance(5));
+
+    instances.push_back(make_graceful_path_instance(6));
+    instances.push_back(make_graceful_star_instance(6));
 
     return instances;
 }

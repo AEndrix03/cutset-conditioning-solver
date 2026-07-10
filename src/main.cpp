@@ -75,6 +75,7 @@ namespace {
                 << "  --help                        stampa questo messaggio\n";
     }
 
+    // Costruisce l'istanza giusta a partire dai flag (--problem, --n, --order, --instance...).
     ProblemInstance make_instance_from_args(int argc, char **argv) {
         std::string problem = get_arg(argc, argv, "--problem", "");
 
@@ -122,8 +123,10 @@ int main(int argc, char **argv) {
         std::vector<ExperimentResult> results;
 
         if (has_arg(argc, argv, "--all")) {
+            // Batch: tutte le istanze di default, entrambi i solver (per la relazione).
             results = run_default_experiments(repeat);
         } else {
+            // Singola run scelta dai flag.
             ProblemInstance instance = make_instance_from_args(argc, argv);
 
             std::string solver_arg = get_arg(argc, argv, "--solver", "cutset");

@@ -24,8 +24,6 @@ struct SolverStats {
     long long constraint_checks = 0;
     long long cutset_assignments = 0;
     int cutset_size = 0;
-    double milliseconds = 0.0;
-    bool solved = false;
 };
 
 /*
@@ -37,13 +35,16 @@ struct SolverStats {
  *      - Un'assegnamento è consistente se per ogni x assegnato si rispettano i vincoli (constraints)
  *
  * Un assegnamento è detto Soluzione se Completo e Consistente!
+ *
+ * Fonte definizioni: R&N 6.1.
  */
 
 /**
  * Rappresenta un qualsiasi vincolo (constraint) binario, ossia che relaziona su due variabili.
  * Implementazione generalizzata per poter costruire vincoli specifici con dei nomi.
  *
- * Un vincolo binario collega due variabili del CSP, quindi richiede le due variabili
+ * Un vincolo binario collega due variabili del CSP, quindi richiede le due variabili.
+ * Fonte: R&N 6.1 (tipi di vincoli).
  */
 class BinaryConstraint {
 public:
@@ -52,8 +53,10 @@ public:
     virtual ~BinaryConstraint() = default;
 
     Var first() const;
+
     Var second() const;
-    const std::string& name() const;
+
+    const std::string &name() const;
 
     /**
      * @param x Variabile
@@ -130,13 +133,14 @@ class CSP {
 public:
     CSP(std::string name, Domains domains);
 
-    const std::string& name() const; // Nome del problema
+    const std::string &name() const; // Nome del problema
     int nvars() const; // Numero di variabili
 
-    const Domains& domains() const; // Domini delle variabili
-    const std::vector<std::unique_ptr<BinaryConstraint>>& constraints() const; // Vincoli del problema
+    const Domains &domains() const; // Domini delle variabili
+    const std::vector<std::unique_ptr<BinaryConstraint>> &constraints() const; // Vincoli del problema
 
-    Assignment empty_assignment() const; // Crea un assegnamento vuoto, CONVENZIONE DI PROGETTO: Valore -1 se non assegnato
+    Assignment
+    empty_assignment() const; // Crea un assegnamento vuoto, CONVENZIONE DI PROGETTO: Valore -1 se non assegnato
 
     void add_constraint(std::unique_ptr<BinaryConstraint> constraint); // Aggiunge un vincolo al CSP
 
@@ -149,33 +153,35 @@ public:
      * @param vy Valore associato alla Variabile Y
      * @param stats Statistica Solver
      */
-    bool constraints_ok_pair(Var x, Value vx, Var y, Value vy, SolverStats* stats = nullptr) const;
+    bool constraints_ok_pair(Var x, Value vx, Var y, Value vy, SolverStats *stats = nullptr) const;
 
     /**
      * Controlla se l'assegnamento parziale è consistente rispetto la sola Variabile X passata.
      * @param x Variabile X
      * @param assignment Assegnamento parziale (o completo)
      */
-    bool is_consistent_var(Var x, const Assignment& assignment, SolverStats* stats = nullptr) const;
+    bool is_consistent_var(Var x, const Assignment &assignment, SolverStats *stats = nullptr) const;
 
     /**
      * Controlla se l'assegnamento è consistente considerando tutti i vincoli
      * @param assignment Assegnamento
      * @return
      */
-    bool is_consistent(const Assignment& assignment, SolverStats* stats = nullptr) const;
+    bool is_consistent(const Assignment &assignment, SolverStats *stats = nullptr) const;
 
     /**
      * @param assignment Assegnamento
      * @return True se tutte le variabili sono != -1 (CONVENZIONE DI PROGETTO)
      */
-    bool is_complete(const Assignment& assignment) const;
+    bool is_complete(const Assignment &assignment) const;
 
     /**
      * Costruisce il grafo primale
      *
      * Nodo = Variabile
      * Arco = Vincolo tra due nodi
+     *
+     * Fonte: R&N 6.1 (grafo dei vincoli), Dechter 2006.
      * @return
      */
     Graph primal_graph() const; // Grafo primale del CSP

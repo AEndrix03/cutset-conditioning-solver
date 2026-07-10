@@ -6,15 +6,13 @@
 #include <vector>
 
 /*
- * experiment.hpp
- *
  * Qui rimane solo la parte sperimentale:
  *   - scelta del solver;
  *   - esecuzione;
  *   - raccolta statistiche;
  *   - stampa.
  *
- * La costruzione delle istanze sta in problems.hpp/cpp.
+ * La costruzione delle istanze sta in problems.hpp/cpp; qui tengo solo la parte di esperimento.
  */
 
 enum class SolverKind {
@@ -24,7 +22,7 @@ enum class SolverKind {
 
 /**
  * Risultato di una run sperimentale.
- * Una struct = una riga del CSV.
+ * Una struct = una riga della tabella stampata.
  */
 struct ExperimentResult {
     std::string problem;
@@ -45,7 +43,6 @@ struct ExperimentResult {
 
     int repeat = 1;
     double time_ms = 0.0;
-    double min_time_ms = 0.0;
 };
 
 std::string solver_name(SolverKind solver);
