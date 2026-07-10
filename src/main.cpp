@@ -49,27 +49,12 @@ namespace {
         return std::stoi(value);
     }
 
-    long long get_long_long_arg(
-            int argc,
-            char **argv,
-            const std::string &key,
-            long long default_value
-    ) {
-        std::string value = get_arg(argc, argv, key, "");
-
-        if (value.empty()) {
-            return default_value;
-        }
-
-        return std::stoll(value);
-    }
-
     void print_usage() {
         std::cout
                 << "Cutset CSP Solver\n\n"
 
                 << "Uso batch:\n"
-                << "  ./cutset_csp --all --repeat 5 --csv results/results.csv\n\n"
+                << "  ./cutset_csp --all --repeat 5\n\n"
 
                 << "Esecuzioni singole:\n"
                 << "  ./cutset_csp --problem nqueens --n 8 --solver cutset\n"
@@ -87,8 +72,6 @@ namespace {
                 << "  --instance path|star          solo per graceful\n"
                 << "  --solver bt|cutset\n"
                 << "  --repeat N                    ripete N volte e prende la mediana\n"
-                << "  --csv PATH                    salva i risultati in CSV\n"
-                << "  --timeout MS                  segnala timeout a posteriori\n"
                 << "  --help                        stampa questo messaggio\n";
     }
 
@@ -135,13 +118,11 @@ int main(int argc, char **argv) {
         }
 
         int repeat = get_int_arg(argc, argv, "--repeat", 1);
-        long long timeout_ms = get_long_long_arg(argc, argv, "--timeout", 0);
-        std::string csv_path = get_arg(argc, argv, "--csv", "");
 
         std::vector<ExperimentResult> results;
 
         if (has_arg(argc, argv, "--all")) {
-            results = run_default_experiments(repeat, timeout_ms);
+            results = run_default_experiments(repeat);
         } else {
             ProblemInstance instance = make_instance_from_args(argc, argv);
 
@@ -149,21 +130,11 @@ int main(int argc, char **argv) {
             SolverKind solver = solver_from_string(solver_arg);
 
             results.push_back(
-                    run_repeated_experiment(
-                            instance,
-                            solver,
-                            repeat,
-                            timeout_ms
-                    )
+                    run_repeated_experiment(instance, solver, repeat)
             );
         }
 
         print_results(results);
-
-        if (!csv_path.empty()) {
-            write_results_csv(csv_path, results);
-            std::cout << "\nCSV scritto in: " << csv_path << "\n";
-        }
 
         return 0;
 

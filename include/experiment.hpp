@@ -12,7 +12,7 @@
  *   - scelta del solver;
  *   - esecuzione;
  *   - raccolta statistiche;
- *   - stampa/CSV.
+ *   - stampa.
  *
  * La costruzione delle istanze sta in problems.hpp/cpp.
  */
@@ -42,7 +42,6 @@ struct ExperimentResult {
 
     bool solved = false;
     bool valid = false;
-    bool timed_out = false;
 
     int repeat = 1;
     double time_ms = 0.0;
@@ -55,25 +54,15 @@ SolverKind solver_from_string(const std::string &name);
 
 ExperimentResult run_single_experiment(
         const ProblemInstance &instance,
-        SolverKind solver,
-        long long timeout_ms = 0
+        SolverKind solver
 );
 
 ExperimentResult run_repeated_experiment(
         const ProblemInstance &instance,
         SolverKind solver,
-        int repeat,
-        long long timeout_ms = 0
+        int repeat
 );
 
-std::vector<ExperimentResult> run_default_experiments(
-        int repeat,
-        long long timeout_ms = 0
-);
-
-void write_results_csv(
-        const std::string &path,
-        const std::vector<ExperimentResult> &results
-);
+std::vector<ExperimentResult> run_default_experiments(int repeat);
 
 void print_results(const std::vector<ExperimentResult> &results);

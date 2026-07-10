@@ -26,7 +26,6 @@ struct SolverStats {
     int cutset_size = 0;
     double milliseconds = 0.0;
     bool solved = false;
-    bool timed_out = false;
 };
 
 /*

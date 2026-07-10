@@ -6,8 +6,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -24,14 +22,6 @@ namespace {
         }
 
         return sum / 2;
-    }
-
-    void ensure_parent_directory(const std::string &path) {
-        std::filesystem::path p(path);
-
-        if (p.has_parent_path()) {
-            std::filesystem::create_directories(p.parent_path());
-        }
     }
 
     const char *bool_text(bool value) {
@@ -57,7 +47,7 @@ SolverKind solver_from_string(const std::string &name) {
         return SolverKind::Backtracking;
     }
 
-    if (name == "cutset") {
+    if (name == "cs" || name == "cutset") {
         return SolverKind::Cutset;
     }
 
@@ -66,24 +56,18 @@ SolverKind solver_from_string(const std::string &name) {
 
 ExperimentResult run_single_experiment(
         const ProblemInstance &instance,
-        SolverKind solver,
-        long long timeout_ms
+        SolverKind solver
 ) {
     SolverStats stats;
     std::optional<Assignment> solution;
 
     auto start = std::chrono::steady_clock::now();
 
-    /*
-     * Nota:
-     * il timeout qui viene solo segnalato a posteriori.
-     * Per un timeout vero bisognerebbe passare una deadline nelle ricorsioni.
-     */
     if (solver == SolverKind::Backtracking) {
         BacktrackingSolver backtracking;
         solution = backtracking.solve(instance.csp, &stats);
     } else if (solver == SolverKind::Cutset) {
-        CutsetSolver cutset;
+        CutsetSolver cutset{};
         solution = cutset.solve(instance.csp, &stats);
     } else {
         throw std::invalid_argument("Unsupported solver");
@@ -95,10 +79,6 @@ ExperimentResult run_single_experiment(
             std::chrono::duration<double, std::milli>(end - start).count();
 
     stats.milliseconds = elapsed_ms;
-
-    if (timeout_ms > 0 && elapsed_ms > static_cast<double>(timeout_ms)) {
-        stats.timed_out = true;
-    }
 
     bool valid = false;
 
@@ -125,7 +105,6 @@ ExperimentResult run_single_experiment(
 
     result.solved = solution.has_value();
     result.valid = valid;
-    result.timed_out = stats.timed_out;
 
     result.repeat = 1;
     result.time_ms = elapsed_ms;
@@ -137,18 +116,17 @@ ExperimentResult run_single_experiment(
 ExperimentResult run_repeated_experiment(
         const ProblemInstance &instance,
         SolverKind solver,
-        int repeat,
-        long long timeout_ms
+        int repeat
 ) {
     if (repeat <= 1) {
-        return run_single_experiment(instance, solver, timeout_ms);
+        return run_single_experiment(instance, solver);
     }
 
     std::vector<ExperimentResult> runs;
     runs.reserve(repeat);
 
     for (int i = 0; i < repeat; ++i) {
-        runs.push_back(run_single_experiment(instance, solver, timeout_ms));
+        runs.push_back(run_single_experiment(instance, solver));
     }
 
     std::sort(
@@ -164,20 +142,10 @@ ExperimentResult run_repeated_experiment(
     median.repeat = repeat;
     median.min_time_ms = runs.front().time_ms;
 
-    for (const auto &run: runs) {
-        if (run.timed_out) {
-            median.timed_out = true;
-            break;
-        }
-    }
-
     return median;
 }
 
-std::vector<ExperimentResult> run_default_experiments(
-        int repeat,
-        long long timeout_ms
-) {
+std::vector<ExperimentResult> run_default_experiments(int repeat) {
     std::vector<ProblemInstance> instances = make_default_instances();
 
     std::vector<SolverKind> solvers = {
@@ -190,68 +158,12 @@ std::vector<ExperimentResult> run_default_experiments(
     for (const auto &instance: instances) {
         for (SolverKind solver: solvers) {
             results.push_back(
-                    run_repeated_experiment(
-                            instance,
-                            solver,
-                            repeat,
-                            timeout_ms
-                    )
+                    run_repeated_experiment(instance, solver, repeat)
             );
         }
     }
 
     return results;
-}
-
-void write_results_csv(
-        const std::string &path,
-        const std::vector<ExperimentResult> &results
-) {
-    ensure_parent_directory(path);
-
-    std::ofstream out(path);
-
-    if (!out) {
-        throw std::runtime_error("Cannot open CSV file: " + path);
-    }
-
-    out << "problem,"
-        << "instance,"
-        << "solver,"
-        << "nvars,"
-        << "constraints,"
-        << "edges,"
-        << "cutset_size,"
-        << "nodes,"
-        << "constraint_checks,"
-        << "cutset_assignments,"
-        << "solved,"
-        << "valid,"
-        << "timed_out,"
-        << "repeat,"
-        << "time_ms,"
-        << "min_time_ms"
-        << "\n";
-
-    for (const auto &result: results) {
-        out << result.problem << ","
-            << result.instance << ","
-            << result.solver << ","
-            << result.nvars << ","
-            << result.constraints << ","
-            << result.edges << ","
-            << result.cutset_size << ","
-            << result.nodes << ","
-            << result.constraint_checks << ","
-            << result.cutset_assignments << ","
-            << bool_text(result.solved) << ","
-            << bool_text(result.valid) << ","
-            << bool_text(result.timed_out) << ","
-            << result.repeat << ","
-            << std::fixed << std::setprecision(3) << result.time_ms << ","
-            << std::fixed << std::setprecision(3) << result.min_time_ms
-            << "\n";
-    }
 }
 
 void print_results(const std::vector<ExperimentResult> &results) {
