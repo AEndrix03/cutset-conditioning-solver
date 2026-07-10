@@ -9,9 +9,9 @@
 
 /*
  * Risolve un CSP il cui grafo primale (residuo) è una foresta.
- * È l'algoritmo TREE-CSP-SOLVER di R&N 6.5.1.
+ * È l'algoritmo TREE-CSP-SOLVER di R&N 6.5 (i CSP ad albero).
  *
- * Pseudocodice dal libro (R&N 6.5.1):
+ * Pseudocodice dal libro (R&N 6.5):
  *
  *   function RISOLUTORE-CSP-ALBERO(csp) returns una soluzione, o fallimento
  *       inputs: csp, un CSP con componenti X, D, C
