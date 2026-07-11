@@ -16,7 +16,7 @@ cmake --build build
 
 ## Come si riproducono i risultati
 
-Il comando che genera tutta la tabella usata nella relazione (3 problemi x 2 istanze, backtracking e cutset a confronto):
+Il comando che genera tutta la tabella usata nella relazione (i tre problemi CSPLib con le loro istanze, backtracking e cutset a confronto):
 
 ```
 ./build/Debug/cutset_csp --all --repeat 5
@@ -33,7 +33,7 @@ Si può anche lanciare una singola istanza:
 ./build/Debug/cutset_csp --problem meeting     --instance single_cycle --meetings 40 --solver bt
 ```
 
-Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle|unsat` (solo meeting), `--solver bt|cutset`, `--repeat N`, `--help`.
+Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle|unsat|hard_sat` (solo meeting), `--solver bt|cutset`, `--repeat N`, `--help`.
 
 ## Cosa c'è in ogni file
 
@@ -68,5 +68,7 @@ In Quasigroup Completion si completa un quadrato latino di ordine n parzialmente
 In Meeting Scheduling ogni variabile è una riunione e il suo valore è lo slot iniziale; ogni arco del grafo primale è un partecipante in comune fra due riunioni, che quindi non possono sovrapporsi e devono lasciare il tempo di viaggio. Le prime due istanze hanno grafo dei conflitti ad albero e con un solo ciclo, così il cutset è rispettivamente vuoto e di dimensione uno.
 
 La terza istanza (`unsat`) è insoddisfacibile in modo genuinamente combinatorio: un ciclo di lunghezza dispari con vincolo "slot diverso" (dominio ridotto a due slot) non è 2-colorabile. Nessun vincolo singolo è contraddittorio e l'arc consistency sul grafo intero non basta a rilevarlo: serve la ricerca. Un feeder lasco iniziale fa esplodere esponenzialmente il backtracking cronologico (milioni di nodi), mentre il cutset condiziona una sola variabile del ciclo e sul path residuo la propagazione scopre subito la contraddizione di parità (due nodi). È il caso in cui il cutset conditioning vince nettamente su backtracking.
+
+La quarta istanza (`hard_sat`) è soddisfacibile ma molto vincolata: una riunione-perno disponibile in un solo slot, assegnata per ultima, è in conflitto con sette riunioni che devono cadere tutte nel pomeriggio. La soluzione esiste ma è nascosta all'ordine statico del backtracking, che riesplode a vuoto (milioni di nodi) prima di scoprire che il perno non entra, mentre il cutset conditioning fissa il perno e chiude subito sull'albero residuo (cutset 1). Insieme a `unsat` mostra che il cutset vince sia sull'insoddisfacibile sia su un soddisfacibile sovra-vincolato.
 
 I generatori delle istanze sono in `problems.*`.

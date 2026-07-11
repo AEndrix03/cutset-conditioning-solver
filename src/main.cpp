@@ -65,12 +65,13 @@ namespace {
 
                 << "  ./cutset_csp --problem meeting --instance tree --meetings 40 --solver cutset\n"
                 << "  ./cutset_csp --problem meeting --instance single_cycle --meetings 40 --solver bt\n"
-                << "  ./cutset_csp --problem meeting --instance unsat --meetings 40 --solver cutset\n\n"
+                << "  ./cutset_csp --problem meeting --instance unsat --meetings 40 --solver cutset\n"
+                << "  ./cutset_csp --problem meeting --instance hard_sat --meetings 40 --solver bt\n\n"
 
                 << "Opzioni:\n"
-                << "  --all                              esegue tutte le istanze di default\n"
+                << "  --all                                       esegue tutte le istanze di default\n"
                 << "  --problem nqueens|quasigroup|meeting\n"
-                << "  --instance tree|single_cycle|unsat solo per meeting\n"
+                << "  --instance tree|single_cycle|unsat|hard_sat solo per meeting\n"
                 << "  --solver bt|cutset\n"
                 << "  --repeat N                    ripete N volte e prende la mediana\n"
                 << "  --help                        stampa questo messaggio\n";
@@ -104,6 +105,10 @@ namespace {
 
             if (instance == "unsat") {
                 return make_meeting_unsat_instance(meetings);
+            }
+
+            if (instance == "hard_sat") {
+                return make_meeting_hard_sat_instance(meetings);
             }
 
             throw std::invalid_argument("Unknown meeting instance: " + instance);

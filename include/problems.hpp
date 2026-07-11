@@ -75,10 +75,10 @@ bool validate_quasigroup_completion(
 
 ProblemInstance make_quasigroup_instance(int order);
 
-// Meeting scheduling (CSPLib prob046): una variabile per riunione, il valore è lo slot
-// iniziale. Due riunioni con un partecipante comune non possono sovrapporsi e devono
-// lasciare il tempo di viaggio: |X_i - X_j| >= 1 + travel. Gli impegni privati degli
-// agenti sono slot tolti dal dominio, non vincoli a parte.
+/* Meeting scheduling (CSPLib prob046): una variabile per riunione, il valore è lo slot
+ iniziale. Due riunioni con un partecipante comune non possono sovrapporsi e devono
+ lasciare il tempo di viaggio: |X_i - X_j| >= 1 + travel. Gli impegni privati degli
+ agenti sono slot tolti dal dominio, non vincoli a parte.*/
 CSP make_meeting_scheduling(
         const std::string &name,
         const Domains &domains,
@@ -91,17 +91,12 @@ bool validate_meeting_scheduling(
         const std::vector<MeetingConflict> &conflicts
 );
 
-// Due topologie del grafo dei conflitti usate come istanze: albero (cutset vuoto) e
-// grafo con un solo ciclo (cutset di una variabile).
 ProblemInstance make_meeting_tree_instance(int n_meetings);
 
 ProblemInstance make_meeting_single_cycle_instance(int n_meetings);
 
-// Istanza insoddisfacibile "genuina": un ciclo dispari (non 2-colorabile) rende il
-// problema UNSAT senza che nessun vincolo singolo lo sia, e un feeder lasco fa esplodere
-// il backtracking cronologico. Il cutset invece condiziona una variabile e chiude subito.
 ProblemInstance make_meeting_unsat_instance(int n_meetings);
 
+ProblemInstance make_meeting_hard_sat_instance(int n_meetings);
 
-// Le istanze di default usate dal benchmark (--all): 3 problemi x 2 istanze.
 std::vector<ProblemInstance> make_default_instances();

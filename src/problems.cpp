@@ -561,26 +561,16 @@ ProblemInstance make_meeting_single_cycle_instance(int n_meetings) {
 }
 
 ProblemInstance make_meeting_unsat_instance(int n_meetings) {
-    // Feeder lasco (dà il branching al backtracking) + nucleo insoddisfacibile + padding.
-    const int feeder_len = 6;   // path lasco iniziale: ~7 scelte per nodo
+    const int feeder_len = 6;
     const int core_len = 5;     // ciclo DISPARI: chiave dell'insoddisfacibilità
 
     if (n_meetings < feeder_len + core_len) {
         throw std::invalid_argument("An unsat meeting instance needs at least 11 meetings");
     }
 
-    const int core = feeder_len;            // primo nodo del ciclo dispari
-    const int pad = core + core_len;        // primo nodo di padding
+    const int core = feeder_len;
+    const int pad = core + core_len;
 
-    /*
-     * Nucleo insoddisfacibile: un ciclo di lunghezza DISPARI dove ogni arco impone
-     * "slot diverso". Col dominio ridotto a due slot {0,4} e travel 3 il vincolo è
-     * un not-equal, e un ciclo dispari non è 2-colorabile => il problema è UNSAT.
-     *
-     * Nessun vincolo singolo è contraddittorio e l'arc consistency non la vede (un
-     * ciclo dispari è arc-consistente): serve la ricerca. Il cutset invece toglie un
-     * nodo del ciclo, resta un path e la propagazione scopre subito la parità.
-     */
     Domains domains(n_meetings, Domain{0, 1, 2, 3, 4, 5, 6, 7});
     for (Var i = core; i < core + core_len; ++i) {
         domains[i] = Domain{0, 4};
@@ -588,21 +578,15 @@ ProblemInstance make_meeting_unsat_instance(int n_meetings) {
 
     std::vector<MeetingConflict> conflicts;
 
-    // Feeder lasco 0-1-...-(feeder_len-1): travel 0 => |X_i-X_j| >= 1 (basta diversi).
-    // Il bt cronologico (ordine statico) esplora esponenzialmente tanti prefissi qui
-    // prima di arrivare al nucleo e scoprire che non c'è soluzione.
     for (Var i = 1; i < feeder_len; ++i) {
         conflicts.push_back({i - 1, i, 0});
     }
     conflicts.push_back({feeder_len - 1, core, 0});
 
-    // Il ciclo dispari vero e proprio.
     for (Var i = 0; i < core_len; ++i) {
         conflicts.push_back({core + i, core + (i + 1) % core_len, 3});
     }
 
-    // Padding lasco appeso al nucleo: porta l'istanza a n_meetings riunioni senza
-    // toccare l'insoddisfacibilità (il bt fallisce sul nucleo prima di arrivarci).
     Var prev = core + core_len - 1;
     for (Var i = pad; i < n_meetings; ++i) {
         conflicts.push_back({prev, i, 0});
@@ -610,6 +594,44 @@ ProblemInstance make_meeting_unsat_instance(int n_meetings) {
     }
 
     std::string name = make_name("unsat", n_meetings);
+    CSP csp = make_meeting_scheduling(name, domains, conflicts);
+
+    return ProblemInstance(
+            "meeting",
+            name,
+            std::move(csp),
+            [domains, conflicts](const Assignment &assignment) {
+                return validate_meeting_scheduling(assignment, domains, conflicts);
+            }
+    );
+}
+
+ProblemInstance make_meeting_hard_sat_instance(int n_meetings) {
+    const int tight = 7;
+
+    if (n_meetings < tight + 2) {
+        throw std::invalid_argument("A hard-sat meeting instance needs at least 9 meetings");
+    }
+
+    const int hub = n_meetings - 1;
+    const int first_tight = hub - tight;
+
+    Domains domains(n_meetings, Domain{0, 1, 2, 3, 4, 5, 6, 7});
+    domains[hub] = Domain{0};   // l'hub è libero solo nello slot 0, e lo assegno per ultimo
+
+    std::vector<MeetingConflict> conflicts;
+
+    for (Var i = 1; i < first_tight; ++i) {
+        conflicts.push_back({i - 1, i, 0});
+    }
+    conflicts.push_back({first_tight - 1, first_tight, 0});
+
+    for (Var i = first_tight; i < hub; ++i) {
+        conflicts.push_back({i, hub, 3});
+    }
+    conflicts.push_back({first_tight, first_tight + 1, 0});
+
+    std::string name = make_name("hard_sat", n_meetings);
     CSP csp = make_meeting_scheduling(name, domains, conflicts);
 
     return ProblemInstance(
@@ -634,6 +656,7 @@ std::vector<ProblemInstance> make_default_instances() {
     instances.push_back(make_meeting_tree_instance(40));
     instances.push_back(make_meeting_single_cycle_instance(40));
     instances.push_back(make_meeting_unsat_instance(40));
+    instances.push_back(make_meeting_hard_sat_instance(40));
 
     return instances;
 }
