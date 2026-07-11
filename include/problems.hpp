@@ -9,13 +9,6 @@
 #include <vector>
 
 /*
- * Qui tengo separata la modellazione dei problemi dal codice dei solver: il solver
- * vede solo un CSP binario generico, mentre ogni problema sa:
- *   - come costruire le proprie istanze;
- *   - come validare una soluzione senza riusare i vincoli del CSP.
- */
-
-/*
  * Un conflitto collega due riunioni che condividono almeno un partecipante: fra le due
  * deve passare il tempo di finire la prima e raggiungere la sede della seconda.
  * travel = slot di spostamento fra le due sedi (ogni riunione dura 1 slot).

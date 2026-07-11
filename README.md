@@ -10,40 +10,46 @@ Serve CMake (>= 3.16) e un compilatore C++17.
 
 ```
 cmake -S . -B build
-cmake --build build
-./build/Debug/cutset_csp
+cmake --build build --config Release
+./build/Release/cutset_csp
 ```
 
 ## Come si riproducono i risultati
 
-Il comando che genera tutta la tabella usata nella relazione (i tre problemi CSPLib con le loro istanze, backtracking e cutset a confronto):
+Il comando che genera tutta la tabella usata nella relazione (i tre problemi CSPLib con le loro istanze, backtracking e
+cutset a confronto):
 
 ```
-./build/Debug/cutset_csp --all --repeat 5
+./build/Release/cutset_csp --all --repeat 5
 ```
 
-`--repeat 5` ripete ogni run 5 volte e tiene la mediana. La tabella viene stampata a schermo: da lì ho copiato i numeri nella relazione.
+`--repeat 5` ripete ogni run 5 volte e tiene la mediana. La tabella viene stampata a schermo: da lì ho copiato i numeri
+nella relazione.
 
 Si può anche lanciare una singola istanza:
 
 ```
-./build/Debug/cutset_csp --problem nqueens     --n 8                          --solver cutset
-./build/Debug/cutset_csp --problem quasigroup  --order 5                      --solver bt
-./build/Debug/cutset_csp --problem meeting     --instance tree         --meetings 40 --solver cutset
-./build/Debug/cutset_csp --problem meeting     --instance single_cycle --meetings 40 --solver bt
+./build/Release/cutset_csp --problem nqueens     --n 8                          --solver cutset
+./build/Release/cutset_csp --problem quasigroup  --order 5                      --solver bt
+./build/Release/cutset_csp --problem meeting     --instance tree         --meetings 40 --solver cutset
+./build/Release/cutset_csp --problem meeting     --instance single_cycle --meetings 40 --solver bt
 ```
 
-Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle|unsat|hard_sat` (solo meeting), `--solver bt|cutset`, `--repeat N`, `--help`.
+Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle|unsat|hard_sat` (solo meeting),
+`--solver bt|cutset`, `--repeat N`, `--help`.
 
 ## Cosa c'è in ogni file
 
 Sorgenti in `src/`, header corrispondenti in `include/`.
 
-- `csp.*` - tipi base del CSP (variabili, domini, assegnamento), i vincoli binari e la classe `CSP` con i controlli di consistenza e il grafo primale.
+- `csp.*` - tipi base del CSP (variabili, domini, assegnamento), i vincoli binari e la classe `CSP` con i controlli di
+  consistenza e il grafo primale.
 - `graph.*` - utility sul grafo: algoritmi test foresta, greedy cycle cutset.
 - `backtracking.*` - solver di backtracking .
-- `tree_solver.*` - solver quando il grafo è una foresta: arc consistency direzionata dalle foglie alla radice, poi assegnamento top-down senza backtracking.
-- `cutset.*` - cutset conditioning solver: trova il cutset, enumera i suoi assegnamenti e per ognuno delega il residuo (ormai un albero) al tree solver.
+- `tree_solver.*` - solver quando il grafo è una foresta: arc consistency direzionata dalle foglie alla radice, poi
+  assegnamento top-down senza backtracking.
+- `cutset.*` - cutset conditioning solver: trova il cutset, enumera i suoi assegnamenti e per ognuno delega il residuo (
+  ormai un albero) al tree solver.
 - `problems.*` - generatori e validatori dei problemi CSPLib.
 - `experiment.*` - fa girare i solver, raccoglie le statistiche e stampa la tabella.
 - `main.cpp` - la CLI.
@@ -55,20 +61,47 @@ Ogni algoritmo implementato riporta:
 
 ## Problemi
 
-I tre problemi vengono da CSPLib (https://www.csplib.org):
+Tre problemi da CSPLib (https://www.csplib.org), scelti per avere grafi primali
+di densità diversa.
 
-- **N-Queens** - prob054
-- **Quasigroup Completion** - prob067
-- **Meeting Scheduling** - prob046
+### N-Queens (prob054)
 
-In N-Queens si mettono n regine su una scacchiera n x n senza che due si attacchino: mai due sulla stessa riga, colonna o diagonale. Qui ogni variabile è una colonna e il valore è la riga della regina, così le colonne sono già distinte per costruzione e restano da vietare stessa riga e stessa diagonale per ogni coppia. Il grafo primale è completo (ogni coppia di colonne è in vincolo), quindi il cutset vale n-2. Le due istanze sono n = 8 e n = 10.
+n regine su una scacchiera n x n senza che si attacchino (stessa riga, colonna o
+diagonale). Variabile = colonna, valore = riga: le colonne sono distinte da sole,
+resta da vietare stessa riga e stessa diagonale.
 
-In Quasigroup Completion si completa un quadrato latino di ordine n parzialmente riempito: ogni riga e ogni colonna deve contenere i valori 1..n esattamente una volta. Ogni variabile è una cella con dominio 1..n, i vincoli sono all-different su righe e colonne (spezzati in disuguaglianze a coppie, così il CSP resta binario) e alcune celle partono già fissate come indizi. Il grafo primale è denso (rook graph). Le due istanze sono di ordine 4 e ordine 5.
+Grafo completo → cutset = n-2. Istanze: n = 8, n = 10.
 
-In Meeting Scheduling ogni variabile è una riunione e il suo valore è lo slot iniziale; ogni arco del grafo primale è un partecipante in comune fra due riunioni, che quindi non possono sovrapporsi e devono lasciare il tempo di viaggio. Le prime due istanze hanno grafo dei conflitti ad albero e con un solo ciclo, così il cutset è rispettivamente vuoto e di dimensione uno.
+### Quasigroup Completion (prob067)
 
-La terza istanza (`unsat`) è insoddisfacibile in modo genuinamente combinatorio: un ciclo di lunghezza dispari con vincolo "slot diverso" (dominio ridotto a due slot) non è 2-colorabile. Nessun vincolo singolo è contraddittorio e l'arc consistency sul grafo intero non basta a rilevarlo: serve la ricerca. Un feeder lasco iniziale fa esplodere esponenzialmente il backtracking cronologico (milioni di nodi), mentre il cutset condiziona una sola variabile del ciclo e sul path residuo la propagazione scopre subito la contraddizione di parità (due nodi). È il caso in cui il cutset conditioning vince nettamente su backtracking.
+Quadrato latino di ordine n riempito a metà: ogni riga e ogni colonna deve avere
+1..n una volta sola. Variabile = cella, dominio 1..n; i vincoli all-different su
+righe e colonne li spezzo in coppie (così restano binari); alcune celle partono
+già fissate.
 
-La quarta istanza (`hard_sat`) è soddisfacibile ma molto vincolata: una riunione-perno disponibile in un solo slot, assegnata per ultima, è in conflitto con sette riunioni che devono cadere tutte nel pomeriggio. La soluzione esiste ma è nascosta all'ordine statico del backtracking, che riesplode a vuoto (milioni di nodi) prima di scoprire che il perno non entra, mentre il cutset conditioning fissa il perno e chiude subito sull'albero residuo (cutset 1). Insieme a `unsat` mostra che il cutset vince sia sull'insoddisfacibile sia su un soddisfacibile sovra-vincolato.
+Grafo denso. Istanze: ordine 4, ordine 5.
 
-I generatori delle istanze sono in `problems.*`.
+### Meeting Scheduling (prob046)
+
+Variabile = riunione, valore = slot di inizio. Un arco = due riunioni con un
+partecipante in comune: non possono sovrapporsi e serve il tempo di spostamento.
+Quattro istanze per far vedere il cutset in azione:
+
+- `tree` - grafo ad albero, cutset vuoto.
+- `cycle` - un solo ciclo, cutset = 1.
+- `unsat` - non ha soluzione. Un ciclo di lunghezza dispari con vincolo "slot
+  diverso" (solo due slot possibili) non si può colorare con due colori. Nessun
+  vincolo preso da solo è sbagliato e l'arc consistency non se ne accorge: serve
+  cercare. Il backtracking parte male e prova milioni di nodi; il cutset fissa una
+  variabile del ciclo e sul resto la propagazione trova subito la contraddizione
+  (due nodi).
+- `hard_sat` - ha soluzione, ma è molto stretta. Una riunione "perno" ha un solo
+  slot libero e va in conflitto con sette riunioni che vanno tutte di pomeriggio.
+  La soluzione c'è ma il backtracking, con il suo ordine fisso, non la trova e
+  prova milioni di nodi a vuoto; il cutset fissa il perno e chiude subito
+  sull'albero che resta (cutset 1).
+
+Insieme, `unsat` e `hard_sat` mostrano che il cutset conditioning vince sia
+quando non c'è soluzione sia quando la soluzione è nascosta.
+
+Generatori e validatori delle istanze sono in `problems.*`.

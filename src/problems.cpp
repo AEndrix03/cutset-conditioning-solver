@@ -197,8 +197,6 @@ namespace {
         }
     }
 
-    // Albero binario dei conflitti: la riunione i condivide un partecipante con la
-    // riunione (i-1)/2. Esattamente n-1 conflitti, quindi il grafo dei conflitti è un albero.
     std::vector<MeetingConflict> meeting_tree_conflicts(int n_meetings) {
         if (n_meetings < 2) {
             throw std::invalid_argument("A meeting tree needs at least 2 meetings");
@@ -215,8 +213,6 @@ namespace {
         return conflicts;
     }
 
-    // Dominio di ogni riunione: la giornata intera meno gli impegni privati dell'agente.
-    // Qui una riunione su quattro ha l'agente occupato negli ultimi due slot.
     Domains meeting_domains(int n_meetings) {
         check_positive(n_meetings, "n_meetings");
 
@@ -451,8 +447,6 @@ CSP make_meeting_scheduling(
 
     CSP csp(name, domains);
 
-    // Un vincolo per conflitto: le due riunioni non si sovrappongono e lasciano il
-    // tempo di viaggio. Durata fissa a 1 slot, quindi |X_i - X_j| >= 1 + travel.
     for (const auto &conflict: conflicts) {
         int travel = conflict.travel;
 
@@ -484,7 +478,6 @@ bool validate_meeting_scheduling(
         return false;
     }
 
-    // Ogni riunione ha uno slot preso dal suo dominio, niente variabili non assegnate.
     for (Var i = 0; i < n_meetings; ++i) {
         Value slot = assignment[i];
 
