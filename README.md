@@ -33,7 +33,7 @@ Si può anche lanciare una singola istanza:
 ./build/Debug/cutset_csp --problem meeting     --instance single_cycle --meetings 40 --solver bt
 ```
 
-Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle` (solo meeting), `--solver bt|cutset`, `--repeat N`, `--help`.
+Opzioni: `--all`, `--problem nqueens|quasigroup|meeting`, `--instance tree|single_cycle|unsat` (solo meeting), `--solver bt|cutset`, `--repeat N`, `--help`.
 
 ## Cosa c'è in ogni file
 
@@ -65,6 +65,8 @@ In N-Queens si mettono n regine su una scacchiera n x n senza che due si attacch
 
 In Quasigroup Completion si completa un quadrato latino di ordine n parzialmente riempito: ogni riga e ogni colonna deve contenere i valori 1..n esattamente una volta. Ogni variabile è una cella con dominio 1..n, i vincoli sono all-different su righe e colonne (spezzati in disuguaglianze a coppie, così il CSP resta binario) e alcune celle partono già fissate come indizi. Il grafo primale è denso (rook graph). Le due istanze sono di ordine 4 e ordine 5.
 
-In Meeting Scheduling ogni variabile è una riunione e il suo valore è lo slot iniziale; ogni arco del grafo primale è un partecipante in comune fra due riunioni, che quindi non possono sovrapporsi e devono lasciare il tempo di viaggio. Le due istanze hanno grafo dei conflitti ad albero e con un solo ciclo, così il cutset è rispettivamente vuoto e di dimensione uno.
+In Meeting Scheduling ogni variabile è una riunione e il suo valore è lo slot iniziale; ogni arco del grafo primale è un partecipante in comune fra due riunioni, che quindi non possono sovrapporsi e devono lasciare il tempo di viaggio. Le prime due istanze hanno grafo dei conflitti ad albero e con un solo ciclo, così il cutset è rispettivamente vuoto e di dimensione uno.
+
+La terza istanza (`unsat`) è insoddisfacibile in modo genuinamente combinatorio: un ciclo di lunghezza dispari con vincolo "slot diverso" (dominio ridotto a due slot) non è 2-colorabile. Nessun vincolo singolo è contraddittorio e l'arc consistency sul grafo intero non basta a rilevarlo: serve la ricerca. Un feeder lasco iniziale fa esplodere esponenzialmente il backtracking cronologico (milioni di nodi), mentre il cutset condiziona una sola variabile del ciclo e sul path residuo la propagazione scopre subito la contraddizione di parità (due nodi). È il caso in cui il cutset conditioning vince nettamente su backtracking.
 
 I generatori delle istanze sono in `problems.*`.

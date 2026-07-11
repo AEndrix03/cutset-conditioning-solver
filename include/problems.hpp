@@ -97,6 +97,11 @@ ProblemInstance make_meeting_tree_instance(int n_meetings);
 
 ProblemInstance make_meeting_single_cycle_instance(int n_meetings);
 
+// Istanza insoddisfacibile "genuina": un ciclo dispari (non 2-colorabile) rende il
+// problema UNSAT senza che nessun vincolo singolo lo sia, e un feeder lasco fa esplodere
+// il backtracking cronologico. Il cutset invece condiziona una variabile e chiude subito.
+ProblemInstance make_meeting_unsat_instance(int n_meetings);
+
 
 // Le istanze di default usate dal benchmark (--all): 3 problemi x 2 istanze.
 std::vector<ProblemInstance> make_default_instances();
