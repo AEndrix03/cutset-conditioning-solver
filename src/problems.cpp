@@ -562,8 +562,8 @@ ProblemInstance make_meeting_single_cycle_instance(int n_meetings) {
 
 ProblemInstance make_meeting_unsat_instance(int n_meetings) {
     // Feeder lasco (dà il branching al backtracking) + nucleo insoddisfacibile + padding.
-    constexpr int feeder_len = 6;   // path lasco iniziale: ~7 scelte per nodo
-    constexpr int core_len = 5;     // ciclo DISPARI: chiave dell'insoddisfacibilita'
+    const int feeder_len = 6;   // path lasco iniziale: ~7 scelte per nodo
+    const int core_len = 5;     // ciclo DISPARI: chiave dell'insoddisfacibilità
 
     if (n_meetings < feeder_len + core_len) {
         throw std::invalid_argument("An unsat meeting instance needs at least 11 meetings");
@@ -573,19 +573,16 @@ ProblemInstance make_meeting_unsat_instance(int n_meetings) {
     const int pad = core + core_len;        // primo nodo di padding
 
     /*
-     * Nucleo insoddisfacibile: un ciclo di lunghezza DISPARI in cui ogni arco impone
-     * "slot diverso". Con dominio ridotto a due slot {0,4} e travel 3 (|X_i-X_j| >= 4),
-     * l'unica coppia ammessa e' (0,4)/(4,0): il vincolo e' un not-equal. Colorare con 2
-     * colori un ciclo dispari e' impossibile, quindi il problema e' UNSAT.
+     * Nucleo insoddisfacibile: un ciclo di lunghezza DISPARI dove ogni arco impone
+     * "slot diverso". Col dominio ridotto a due slot {0,4} e travel 3 il vincolo è
+     * un not-equal, e un ciclo dispari non è 2-colorabile => il problema è UNSAT.
      *
-     * L'insoddisfacibilita' e' COMBINATORIA: nessun singolo vincolo e' contraddittorio
-     * (ogni arco, da solo, e' soddisfacibile) e l'arc consistency sul grafo intero non
-     * la rileva (un ciclo dispari e' arc-consistente). Serve la ricerca -- o, meglio, il
-     * cutset: tolto un nodo del ciclo resta un path e la propagazione sull'albero scopre
-     * subito la contraddizione di parita'.
+     * Nessun vincolo singolo è contraddittorio e l'arc consistency non la vede (un
+     * ciclo dispari è arc-consistente): serve la ricerca. Il cutset invece toglie un
+     * nodo del ciclo, resta un path e la propagazione scopre subito la parità.
      */
     Domains domains(n_meetings, Domain{0, 1, 2, 3, 4, 5, 6, 7});
-    for (int i = core; i < core + core_len; ++i) {
+    for (Var i = core; i < core + core_len; ++i) {
         domains[i] = Domain{0, 4};
     }
 
@@ -593,25 +590,23 @@ ProblemInstance make_meeting_unsat_instance(int n_meetings) {
 
     // Feeder lasco 0-1-...-(feeder_len-1): travel 0 => |X_i-X_j| >= 1 (basta diversi).
     // Il bt cronologico (ordine statico) esplora esponenzialmente tanti prefissi qui
-    // prima di arrivare al nucleo e scoprire che non c'e' soluzione.
+    // prima di arrivare al nucleo e scoprire che non c'è soluzione.
     for (Var i = 1; i < feeder_len; ++i) {
-        conflicts.push_back({static_cast<Var>(i - 1), i, 0});
+        conflicts.push_back({i - 1, i, 0});
     }
-    conflicts.push_back({static_cast<Var>(feeder_len - 1), static_cast<Var>(core), 0});
+    conflicts.push_back({feeder_len - 1, core, 0});
 
     // Il ciclo dispari vero e proprio.
-    for (int i = 0; i < core_len; ++i) {
-        conflicts.push_back({static_cast<Var>(core + i),
-                             static_cast<Var>(core + (i + 1) % core_len),
-                             3});
+    for (Var i = 0; i < core_len; ++i) {
+        conflicts.push_back({core + i, core + (i + 1) % core_len, 3});
     }
 
     // Padding lasco appeso al nucleo: porta l'istanza a n_meetings riunioni senza
-    // toccare l'insoddisfacibilita' (il bt fallisce sul nucleo prima di arrivarci).
-    Var prev = static_cast<Var>(core + core_len - 1);
-    for (int i = pad; i < n_meetings; ++i) {
-        conflicts.push_back({prev, static_cast<Var>(i), 0});
-        prev = static_cast<Var>(i);
+    // toccare l'insoddisfacibilità (il bt fallisce sul nucleo prima di arrivarci).
+    Var prev = core + core_len - 1;
+    for (Var i = pad; i < n_meetings; ++i) {
+        conflicts.push_back({prev, i, 0});
+        prev = i;
     }
 
     std::string name = make_name("unsat", n_meetings);
